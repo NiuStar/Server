@@ -1,0 +1,542 @@
+package server
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"golang.org/x/net/websocket"
+	"net/http"
+	"net"
+	"time"
+	"os"
+	"os/signal"
+	"syscall"
+	"nqc.cn/log"
+	"nqc.cn/utils"
+	"nqc.cn/xsql"
+	"crypto/tls"
+	xlog "log"
+	"io/ioutil"
+	"path/filepath"
+	"runtime"
+)
+
+type XServer struct {
+	xs *xsql.XSql
+	db *sql.DB
+	db2 *sql.DB
+
+	address	string
+	//server *http.Server
+	server *gin.Engine
+	listener   net.Listener
+
+	isGraceful bool
+	signalChan chan os.Signal
+
+}
+
+var config map[string]interface{} = make(map[string]interface{})
+
+func readConfig() {
+	data := utils.ReadFile("config.json")
+	config1 := make(map[string]interface{})
+	err := json.Unmarshal([]byte(data), &config1)
+	if err != nil {
+		fmt.Println("config文件错误")
+		panic(err)
+		return
+	}
+	config["DEBUG"] = config1["DEBUG"]
+	config["port"] = config1["port"]
+	config["tls"] = config1["tls"]
+	config["fileName"] = config1["fileName"]
+
+	j2 := config1["sql"].(map[string]interface{})
+	j4 := config1["sql2"].(map[string]interface{})
+	j3 := config1["tlsCert"].(map[string]interface{})
+	config["tlsCert"] = j3
+	config["sql"] = j2
+	config["sql2"] = j4
+
+}
+
+var getRoutes = make(map[string]gin.HandlerFunc)
+var postRoutes = make(map[string]gin.HandlerFunc)
+var socketRoutes = make(map[string]websocket.Handler)
+
+
+func Default() *XServer {
+	readConfig()
+	return NewServer(":"+config["port"].(string), DEFAULT_READ_TIMEOUT, DEFAULT_WRITE_TIMEOUT)
+	//return ser
+}
+
+func GET(key string, call gin.HandlerFunc) {
+	getRoutes[key] = call
+
+}
+func POST(key string, call gin.HandlerFunc) {
+	postRoutes[key] = call
+
+}
+
+func HandfuncWebSocket(key string, call websocket.Handler) {
+	socketRoutes[key] = call
+}
+
+
+func (s *XServer) InitOldSql() *sql.DB {
+	j2 := config["sql"].(map[string]interface{})
+	// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
+	s.db, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8")
+	s.db.SetMaxOpenConns(2000)
+	s.db.SetMaxIdleConns(1000)
+	s.db.Ping()
+	return s.db
+}
+
+func (s *XServer) InitOldSql2() *sql.DB {
+	j2 := config["sql2"].(map[string]interface{})
+	// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
+	s.db2, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8")
+	s.db2.SetMaxOpenConns(2000)
+	s.db2.SetMaxIdleConns(1000)
+	s.db2.Ping()
+	return s.db2
+}
+
+func (s *XServer) InitXSql() *xsql.XSql {
+	j2 := config["sql"].(map[string]interface{})
+	s.xs = xsql.InitSql(j2["name"].(string), j2["password"].(string), j2["ip"].(string), j2["port"].(string), j2["table"].(string))
+	return s.xs
+}
+
+func (this *XServer)RunServer() {
+	go timer(this)
+	//readConfig()
+	//utils.ReadUtils()
+	//_ = this.startNewProcess()
+	log.Init()
+
+	if config["DEBUG"].(bool) {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	this.server.StaticFS("/html", http.Dir(utils.GetCurrPath() + "html"))
+	this.server.StaticFile("/favicon.ico", utils.GetCurrPath() + "resources/favicon.ico")
+	//设置静态资源
+	this.server.LoadHTMLGlob(utils.GetCurrPath() + "templates/*")
+
+	this.server.GET("/test", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.tmpl", gin.H{
+			"title": "Main website",
+		})
+	})
+	for key ,value := range socketRoutes {
+		fmt.Println("websocket key ",key)
+		this.server.GET(key, func(c *gin.Context) {
+
+			s := websocket.Server{Handler: value}
+			s.ServeHTTP(c.Writer, c.Request)
+
+		})
+	}
+	for key, value := range getRoutes {
+		this.server.GET(key, value)
+	}
+	for key, value := range postRoutes {
+		this.server.POST(key, value)
+	}
+
+
+
+	if config["tls"].(bool) {
+		j2 := config["tlsCert"].(map[string]interface{})
+		this.ListenAndServeTLS(utils.GetCurrPath() + j2["cert"].(string),utils.GetCurrPath() + j2["key"].(string))
+		//router.RunTLS(":"+config["port"].(string), j2["cert"].(string), j2["key"].(string))
+	} else {
+		this.ListenAndServe()
+		//router.Run(":" + config["port"].(string))
+	}
+	//router.RunTLS(":3001", "server.crt", "server.key") // for a hard coded port
+	//router.Run(":4330") // for a hard coded port
+}
+
+var fileList []interface{}
+
+const (
+	GRACEFUL_ENVIRON_KEY    = "IS_GRACEFUL"
+	GRACEFUL_ENVIRON_STRING = GRACEFUL_ENVIRON_KEY + "=1"
+
+	DEFAULT_READ_TIMEOUT  = 60 * time.Second
+	DEFAULT_WRITE_TIMEOUT = DEFAULT_READ_TIMEOUT
+)
+
+// new server
+func NewServer(addr string, readTimeout, writeTimeout time.Duration) *XServer {
+	fmt.Println("port=",addr)
+	// 获取环境变量
+	isGraceful := false
+	if os.Getenv(GRACEFUL_ENVIRON_KEY) != "" {
+		isGraceful = true
+	}
+
+
+	// 实例化Server
+	return &XServer{
+		address: addr,
+		server: gin.Default(),
+		isGraceful: isGraceful,
+		signalChan: make(chan os.Signal),
+	}
+}
+
+
+func (this *XServer) ListenAndServe() error {
+	return this.Serve()
+}
+
+func (this *XServer) ListenAndServeTLS(certFile, keyFile string) error {
+
+	fmt.Println("tls port =",this.address)
+	config := &tls.Config{}
+	srv,_ := this.server.GetTLSConfig(this.address)
+	if srv.TLSConfig != nil {
+		*config = *srv.TLSConfig
+	}
+	if config.NextProtos == nil {
+		config.NextProtos = []string{"http/1.1"}
+	}
+
+	var err error
+	config.Certificates = make([]tls.Certificate, 1)
+	config.Certificates[0], err = tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		panic(err)
+		return err
+	}
+
+	ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
+	//ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
+	if err != nil {
+		panic(err)
+		return err
+	}
+	//l := tls.NewListener(ln, config)
+
+	this.listener = newListener(ln.(*net.TCPListener))
+	return this.ServeTLS(srv,tls.NewListener(this.listener,config))
+}
+
+func (this *XServer) Serve() error {
+
+	xlog.Println(fmt.Sprintf("(this *Server) Serve() with pid %d.  " + this.address, os.Getpid()))
+	ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
+	if err != nil {
+		xlog.Println(fmt.Sprintf("1a56 with pid %d.", os.Getpid()))
+		fmt.Println("1a56")
+		panic(err)
+		return err
+	}
+	this.listener = newListener(ln.(*net.TCPListener))
+	// 处理信号
+	go this.handleSignals()
+
+	fmt.Println("123456")
+	// 处理HTTP请求
+	xlog.Println(fmt.Sprintf("123456 with pid %d.", os.Getpid()))
+	this.server.Run(this.listener,this.address)
+
+	// 跳出Serve处理代表 listener 已经close，等待所有已有的连接处理结束
+	this.logf("waiting for connection close...")
+	this.listener.(*Listener).Wait()
+	this.logf("all connection closed, process with pid %d shutting down...", os.Getpid())
+
+	return err
+}
+
+func (this *XServer) ServeTLS(srv http.Server,ln net.Listener) error {
+
+	xlog.Println(fmt.Sprintf("(this *Server) Serve() with pid %d.", os.Getpid()))
+
+	// 处理信号
+	go this.handleSignals()
+
+	fmt.Println("123456")
+	// 处理HTTP请求
+	xlog.Println(fmt.Sprintf("123456 with pid %d.", os.Getpid()))
+	this.server.RunTLS(srv,ln)
+
+	// 跳出Serve处理代表 listener 已经close，等待所有已有的连接处理结束
+	this.logf("waiting for connection close...")
+	this.listener.(*Listener).Wait()
+	this.logf("all connection closed, process with pid %d shutting down...", os.Getpid())
+
+	return nil
+}
+
+
+func (this *XServer) handleSignals() {
+	var sig os.Signal
+
+	signal.Notify(
+		this.signalChan,
+		syscall.SIGTERM,
+		syscall.SIGINT,
+	)
+
+	pid := os.Getpid()
+	for {
+		sig = <-this.signalChan
+
+		switch sig {
+
+		case syscall.SIGTERM:
+
+			this.logf("pid %d received SIGTERM.", pid)
+			this.logf("graceful shutting down http server...")
+
+			// 关闭老进程的连接
+			this.listener.(*Listener).Close()
+			this.logf("listener of pid %d closed.", pid)
+
+		case syscall.SIGINT:
+			this.StartServer()
+
+		default:
+
+		}
+	}
+}
+
+func (this *XServer)StartServer() {
+	pid := os.Getpid()
+	fmt.Println("syscall.SIGHUP:")
+	this.logf("pid %d received SIGUSR2.", pid)
+	this.logf("restart http server...")
+
+	err := this.startNewProcess()
+	if err != nil {
+		this.logf("start new process failed: %v, pid %d continue serve.", err)
+	} else {
+		// 关闭老进程的连接
+		this.listener.(*Listener).Close()
+		this.logf("listener of pid %d closed.", pid)
+	}
+}
+
+// 启动子进程执行新程序
+func (this *XServer) startNewProcess() error {
+
+	/*listenerFd, err := this.listener.(*Listener).GetFd()
+	if err != nil {
+		return fmt.Errorf("failed to get socket file descriptor: %v", err)
+	}*/
+	listenerFd,_ := this.listener.(*Listener).GetFd()
+
+	path := os.Args[0]
+
+	// 设置标识优雅重启的环境变量
+	environList := []string{}
+	for _, value := range os.Environ() {
+		if value != GRACEFUL_ENVIRON_STRING {
+			environList = append(environList, value)
+		}
+	}
+	var execSpec *syscall.ProcAttr
+	environList = append(environList, GRACEFUL_ENVIRON_STRING)
+	if "windows" == runtime.GOOS {
+		execSpec = &syscall.ProcAttr{
+			Env:   environList,
+			Files: []uintptr{os.Stdin.Fd(), os.Stdout.Fd(), os.Stderr.Fd()},
+		}
+	} else {
+		execSpec = &syscall.ProcAttr{
+			Env:   environList,
+			Files: []uintptr{os.Stdin.Fd(), os.Stdout.Fd(), os.Stderr.Fd(),listenerFd},
+		}
+	}
+
+	fork,_, err := syscall.StartProcess(path, os.Args, execSpec)
+	//fork, err := syscall.ForkExec(path, os.Args, execSpec)
+	if err != nil {
+		panic(err)
+		return fmt.Errorf("failed to forkexec: %v", err)
+	}
+
+
+	this.logf("start new process success, pid %d.", fork)
+
+	return nil
+}
+
+//获取指定目录下的所有文件，不进入下一级目录搜索，可以匹配后缀过滤。
+func getNowFiles(dirPth string) []interface{} {
+	var nowFile []interface{}
+	dir, err := ioutil.ReadDir(dirPth)
+	if err != nil {
+		return nowFile
+	}
+	//PthSep := string(os.PathSeparator)
+	//fmt.Println(dirPth)
+	for _, fi := range dir {
+		if fi.IsDir() { // 忽略目录
+			continue
+		}
+		name := fi.Name()
+		//npath := utils.Substr(filepath, len(path), len(filepath)-len(name)-len(path))
+		//npath = utils.Substr(npath, 0, len(npath)-len(name))
+		value := make(map[string]interface{})
+		//fmt.Println(name)
+		//modtime := utils.FormatTime(fi.ModTime().Unix(), "2006/01/02 - 03:04:05")
+		if name == config["fileName"].(string) {
+			value["name"] = name
+			value["modtime"] = fi.ModTime().Unix()
+			//value["path"] = npath
+			//fmt.Println(fi.Name())
+			nowFile = append(nowFile, value)
+		}
+	}
+	//fmt.Println("getNowFiles end")
+	return nowFile
+}
+/*
+func getNowFiles(path string) []interface{} {
+
+	var nowFile []interface{}
+	//fmt.Println(path)
+
+	fullPath := GetFullPath(path)
+
+	//listStr := list.New()
+
+	filepath.Walk(fullPath, func(filepath string, fi os.FileInfo, err error) error {
+		if nil == fi {
+			return err
+		}
+		if fi.IsDir() {
+			return nil
+		}
+		name := fi.Name()
+		npath := utils.Substr(filepath, len(path), len(filepath)-len(name)-len(path))
+		//npath = utils.Substr(npath, 0, len(npath)-len(name))
+		value := make(map[string]interface{})
+		//fmt.Println(name)
+		//modtime := utils.FormatTime(fi.ModTime().Unix(), "2006/01/02 - 03:04:05")
+		if fi.Name() == config["fileName"].(string) {
+			value["name"] = fi.Name()
+			value["modtime"] = fi.ModTime().Unix()
+			value["path"] = npath
+			//fmt.Println(fi.Name())
+			nowFile = append(nowFile, value)
+		}
+
+		return nil
+	})
+	return nowFile
+	//OutputFilesName(listStr)
+}*/
+
+func GetFullPath(path string) string {
+	absolutePath, _ := filepath.Abs(path)
+	return absolutePath
+}
+
+func (this *XServer) restart() {
+	fmt.Println("restart ",os.Getpid())
+	p , err := os.FindProcess(os.Getpid())
+	if err != nil {
+		panic(err)
+		return
+	}
+	fmt.Println("Signal")
+	//p.Kill()
+	//p.Signal(os.Kill)
+	p.Signal(syscall.SIGINT)
+	this.StartServer()
+	go func() {
+		//p.Kill()
+		//p.Signal(syscall.SIGINT)
+		//p.Signal(syscall.SIGTERM) //kill process
+		//this.StartServer()
+
+	}()
+	//p.Kill()
+	fmt.Println("Signal end ",p.Pid)
+	/*pstat, err := p.Wait()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(pstat)*/
+	fmt.Println("重启服务器")
+	//return
+}
+
+func timer(this *XServer) {
+
+	var count int64 = 0
+	//nt := int64(time.Now().Unix())
+	timer := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-timer.C:
+			{
+				count++
+				//fmt.Println("次数:",count)
+				if len(fileList) == 0 {
+					//fmt.Println("len(fileList) == 0:",count)
+					fileList = getNowFiles(utils.GetCurrPath())
+				} else {
+					//fmt.Println("len(fileList) != 0",count)
+					l :=  getNowFiles(utils.GetCurrPath())
+					//fmt.Println(".... l := getNowFiles(\"./\") ",count)
+					if len(l) != len(fileList) {
+						fmt.Println("len(l) != len(fileList) : ",count)
+						this.restart()
+						//_ = exec.Command(fmt.Sprintf("kill -SIGUSR2 %d",os.Getpid()))
+
+						return
+					}
+					for _,value := range l {
+						list := value.(map[string]interface{})
+
+						if list["modtime"].(int64) != GetTimeFromList(list["name"].(string),fileList) {
+							fmt.Println("list[\"modtime\"].(int64) != GetTimeFromList(list[\"name\"].(string),fileList) :",count)
+							this.restart()
+							//_ = exec.Command(fmt.Sprintf("kill -SIGUSR2 %d",os.Getpid()))
+
+							return
+						}
+					}
+				}
+			}
+
+		}
+	}
+	//fmt.Println("次数:end ",count)
+}
+
+func GetTimeFromList(name string,l []interface{}) int64 {
+	for _,value := range l {
+		list := value.(map[string]interface{})
+
+		if name == list["name"].(string) {
+			return list["modtime"].(int64)
+		}
+	}
+	return 0
+	//list := value.(map[string]interface{})
+}
+
+func (this *XServer) logf(format string, args ...interface{}) {
+
+
+	xlog.Printf(format, args...)
+
+}
