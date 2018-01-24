@@ -3,8 +3,8 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/NiuStar/fileserver1"
-	"github.com/NiuStar/filestream1"
+	"github.com/NiuStar/fileserver"
+	"github.com/NiuStar/filestream"
 	"github.com/NiuStar/utils"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -156,8 +156,8 @@ type fileSyatem struct {
 
 func (s *XServer) createStaticHandlerOld(relativePath string, fs http.FileSystem) gin.HandlerFunc {
 	absolutePath := utils.JoinPaths(s.server.BasePath(), relativePath)
-	fileServer := StripPrefix(absolutePath, fileserver1.FileServer(fs))
-	fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver1.FileServer(fs))
+	fileServer := StripPrefix(absolutePath, fileserver.FileServer(fs))
+	fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver.FileServer(fs))
 	//h := http.FileServer(fs)
 	_, nolisting := fs.(*filestream1.OnlyfilesFS)
 	return func(c *gin.Context) {
@@ -218,9 +218,9 @@ func (s *XServer) createStaticHandler(relativePath string, config []map[string]i
 
 						fmt.Println("utils.GetCurrPath() + value[\"html\"]: ", utils.GetCurrPath()+value.(string))
 
-						fileServer := StripPrefix(absolutePath, fileserver1.FileServer(fs1))
+						fileServer := StripPrefix(absolutePath, fileserver.FileServer(fs1))
 
-						fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver1.FileServer(fs1))
+						fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver.FileServer(fs1))
 
 						_, nolisting := fs1.(*filestream1.OnlyfilesFS)
 
@@ -339,8 +339,8 @@ func (s *XServer) createLogFileStaticHandler(relativePath string, config []map[s
 
 			fmt.Println("utils.GetCurrPath() + value[\"log\"]: ", utils.GetCurrPath()+value["log"].(string))
 
-			fileServer := StripPrefix(absolutePath, fileserver1.FileServer(fs1))
-			fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver1.FileServer(fs1))
+			fileServer := StripPrefix(absolutePath, fileserver.FileServer(fs1))
+			fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver.FileServer(fs1))
 			_, nolisting := fs1.(*filestream1.OnlyfilesFS)
 
 			fsList[value["path"].(string)] = &fileSyatem{fs: fs1, fileServer: fileServer, fileServerAdmin: fileServerAdmin, nolisting: nolisting, path: utils.GetCurrPath() + value["log"].(string) + "/../log"}
@@ -351,8 +351,8 @@ func (s *XServer) createLogFileStaticHandler(relativePath string, config []map[s
 
 		fmt.Println("utils.GetCurrPath() + value[\"log\"]: ", utils.GetCurrPath()+"log")
 
-		fileServer := StripPrefix(absolutePath, fileserver1.FileServer(fs1))
-		fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver1.FileServer(fs1))
+		fileServer := StripPrefix(absolutePath, fileserver.FileServer(fs1))
+		fileServerAdmin := StripPrefixAdmin(absolutePath, fileserver.FileServer(fs1))
 		_, nolisting := fs1.(*filestream1.OnlyfilesFS)
 
 		fsList["0"] = &fileSyatem{fs: fs1, fileServer: fileServer, fileServerAdmin: fileServerAdmin, nolisting: nolisting, path: utils.GetCurrPath() + "log"}

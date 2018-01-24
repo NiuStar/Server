@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/DeanThompson/ginpprof"
-	"github.com/NiuStar/ftpserver1"
+	"github.com/NiuStar/ftpserver"
 	xgin "github.com/NiuStar/server/gin"
 	"runtime"
 )
