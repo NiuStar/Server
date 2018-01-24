@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/DeanThompson/ginpprof"
-	"github.com/NiuStar/ftpserver"
+	"github.com/NiuStar/ftpserver1"
 	xgin "github.com/NiuStar/server/gin"
 	"runtime"
 )
@@ -184,7 +184,7 @@ func (this *XServer) RunServer() {
 		pass := ftp["password"].(string)
 		path := ftp["path"].(string)
 		port := ftp["port"].(float64)
-		ftpserver.StartFtp(name, pass, path, int(port))
+		ftpserver1.StartFtp(name, pass, path, int(port))
 	}
 	if this.config["DEBUG"].(bool) {
 		gin.SetMode(gin.DebugMode)
