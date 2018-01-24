@@ -3,21 +3,20 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/NiuStar/fileserver"
+	"github.com/NiuStar/filestream"
+	"github.com/NiuStar/utils"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
-	"nqc.cn/utils"
-	"nqc.cn/fileserver"
-	"nqc.cn/filestream"
 	"time"
-
 )
 
-func (this *XServer)initFileServer() {
+func (this *XServer) initFileServer() {
 
 	var configAll []map[string]interface{}
 
-	ok,err := utils.PathExists("host.json")
+	ok, err := utils.PathExists("host.json")
 	if ok && err == nil {
 		data := utils.ReadFileFullPath("host.json")
 
@@ -30,7 +29,6 @@ func (this *XServer)initFileServer() {
 		}
 	}
 
-
 	if this.config["FileList"] != nil {
 		var list []interface{} = this.config["FileList"].([]interface{})
 		for _, value := range list {
@@ -41,19 +39,17 @@ func (this *XServer)initFileServer() {
 	} else {
 		if this.HadAllowAllMethod {
 
-
-
 			fmt.Println("this.HadAllowAllMethod")
 
 			var folderList map[string]int = make(map[string]int)
 			fmt.Println("0")
 
-			for _,object := range configAll {
+			for _, object := range configAll {
 				if object["folder"] != nil {
 
 					config := object["folder"].(map[string]interface{})
 
-					for key,_ := range config {
+					for key, _ := range config {
 
 						folderList[key] = 0
 						//this.server.StaticFSHandler(key, this.createStaticHandler(key,configAll))
@@ -64,7 +60,7 @@ func (this *XServer)initFileServer() {
 
 					config := object["folder_net"].([]interface{})
 
-					for _,value := range config {
+					for _, value := range config {
 
 						folderList[value.(string)] = 0
 						//this.server.StaticFSHandler(value, this.createStaticHandler(value,configAll))
@@ -72,8 +68,8 @@ func (this *XServer)initFileServer() {
 				}
 			}
 
-			for key,_ := range folderList {
-				this.server.StaticFSHandler(key, this.createStaticHandler(key,configAll))
+			for key, _ := range folderList {
+				this.server.StaticFSHandler(key, this.createStaticHandler(key, configAll))
 			}
 			fmt.Println("folder Over")
 			//this.server.StaticFSHandler("/", this.createStaticHandler("/"))
@@ -84,11 +80,10 @@ func (this *XServer)initFileServer() {
 			this.server.StaticFS("/upload", http.Dir(utils.GetCurrPath()+"upload"))
 		}
 
-
 	}
 	fmt.Println("进入log")
 	//this.server.StaticFS("/", http.Dir(utils.GetCurrPath()))
-	this.server.StaticFSHandler("/log", this.createLogFileStaticHandler("/log",configAll))
+	this.server.StaticFSHandler("/log", this.createLogFileStaticHandler("/log", configAll))
 
 	this.server.GET("/", func(c *gin.Context) {
 
@@ -97,52 +92,51 @@ func (this *XServer)initFileServer() {
 			proto = "https://"
 		}
 
-		for _,object := range configAll {
+		for _, object := range configAll {
 
-			if strings.EqualFold( object["path"].(string),c.Request.Host) {
-				if object["move"] != nil  && object["move"].(bool) {
+			if strings.EqualFold(object["path"].(string), c.Request.Host) {
+				if object["move"] != nil && object["move"].(bool) {
 
-					fmt.Println("重定向",proto + c.Request.Host + "/html/index.html")
-					c.Writer.Header().Add("Location",proto + c.Request.Host + "/html/index.html")
+					fmt.Println("重定向", proto+c.Request.Host+"/html/index.html")
+					c.Writer.Header().Add("Location", proto+c.Request.Host+"/html/index.html")
 
 					c.Writer.WriteHeader(http.StatusMovedPermanently)
 				} else if object["goto"] != nil {
-					fmt.Println("重定向",proto + c.Request.Host + object["goto"].(string))
-					c.Writer.Header().Add("Location",proto + c.Request.Host + object["goto"].(string))
+					fmt.Println("重定向", proto+c.Request.Host+object["goto"].(string))
+					c.Writer.Header().Add("Location", proto+c.Request.Host+object["goto"].(string))
 
 					c.Writer.WriteHeader(http.StatusMovedPermanently)
-				} else  {
+				} else {
 
 					if object["folder"] != nil && object["folder"].(map[string]interface{})["html"] != nil {
 
 						html := object["folder"].(map[string]interface{})["html"]
-						fmt.Println("path:",html.(string) + "/index.html")
-						c.File( html.(string) + "/index.html")
+						fmt.Println("path:", html.(string)+"/index.html")
+						c.File(html.(string) + "/index.html")
 
 					} else {
-						array := strings.Split(c.Request.URL.Path,"/")
+						array := strings.Split(c.Request.URL.Path, "/")
 						tempFile := utils.MD5("http://" + object["truePath"].(string) + c.Request.URL.Path)
-						fmt.Println("url: ","http://" + object["truePath"].(string) + c.Request.URL.Path)
+						fmt.Println("url: ", "http://"+object["truePath"].(string)+c.Request.URL.Path)
 
-						fmt.Println( []byte(array[len(array) - 1]))
+						fmt.Println([]byte(array[len(array)-1]))
 
-						qName := array[len(array) - 1]
-						if len( qName) <= 0 {
+						qName := array[len(array)-1]
+						if len(qName) <= 0 {
 							qName = "index.html"
 						}
-						fmt.Println("tempFile:",tempFile + qName)
-						filedata ,type_ := utils.GETForward("http://" + object["truePath"].(string) + c.Request.URL.Path)
-						err := utils.WriteToFile("./temp/" + tempFile + qName,filedata)
+						fmt.Println("tempFile:", tempFile+qName)
+						filedata, type_ := utils.GETForward("http://" + object["truePath"].(string) + c.Request.URL.Path)
+						err := utils.WriteToFile("./temp/"+tempFile+qName, filedata)
 						if err != nil {
 							panic(err)
 						}
-						c.Header("Content-Type",type_)
+						c.Header("Content-Type", type_)
 						c.File("./temp/" + tempFile + qName)
 					}
 
 				}
 			}
-
 
 		}
 
@@ -192,7 +186,7 @@ func (s *XServer) createStaticHandlerOld(relativePath string, fs http.FileSystem
 	}
 }
 
-func (s *XServer) createStaticHandler(relativePath string,config []map[string]interface{}) gin.HandlerFunc {//是否为网络文件，不在本地服务器
+func (s *XServer) createStaticHandler(relativePath string, config []map[string]interface{}) gin.HandlerFunc { //是否为网络文件，不在本地服务器
 
 	/*var config []map[string]string
 	data := utils.ReadFileFullPath("host.json")
@@ -215,8 +209,8 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 				//fList := make(map[string]interface{})
 				fList := value1["folder"].(map[string]interface{})
 
-				for key,value := range fList {
-					if strings.EqualFold(key,relativePath) {
+				for key, value := range fList {
+					if strings.EqualFold(key, relativePath) {
 
 						var fs1 http.FileSystem
 
@@ -230,7 +224,6 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 
 						_, nolisting := fs1.(*filestream.OnlyfilesFS)
 
-
 						fsList[value1["path"].(string)] = &fileSyatem{fs: fs1, fileServer: fileServer, fileServerAdmin: fileServerAdmin, nolisting: nolisting, path: utils.GetCurrPath() + value.(string)}
 					}
 				}
@@ -240,9 +233,9 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 				//fmt.Println(value1)
 				fList := value1["folder_net"].([]interface{})
 
-				for _,value := range fList {
+				for _, value := range fList {
 					fmt.Println(value)
-					if strings.EqualFold(value.(string),relativePath) {
+					if strings.EqualFold(value.(string), relativePath) {
 						fsList[value1["path"].(string)] = nil
 					}
 				}
@@ -254,7 +247,7 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 	value := make(map[string]string)
 	//fmt.Println("进11111")
 	for _, value1 := range config {
-		fmt.Println("value1[\"path\"]",value1["path"])
+		fmt.Println("value1[\"path\"]", value1["path"])
 		value[value1["path"].(string)] = value1["truePath"].(string)
 
 	}
@@ -262,52 +255,49 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 
 	return func(c *gin.Context) {
 
-		array := strings.Split(c.Request.URL.Path,"/")
-		fmt.Println("进入转发",c.Request.Host)
+		array := strings.Split(c.Request.URL.Path, "/")
+		fmt.Println("进入转发", c.Request.Host)
 		path := c.Request.URL.Path
-		if  fsList[c.Request.Host] == nil && len(value[c.Request.Host]) > 0 {
+		if fsList[c.Request.Host] == nil && len(value[c.Request.Host]) > 0 {
 			//fmt.Println("进入转发",c.Request.Host)
-			tempFile := utils.MD5(value[c.Request.Host]  + c.Request.URL.Path)
+			tempFile := utils.MD5(value[c.Request.Host] + c.Request.URL.Path)
 
-			qName := array[len(array) - 1]
-			if len( qName) <= 0 {
+			qName := array[len(array)-1]
+			if len(qName) <= 0 {
 				qName = ".html"
 			}
 			tm1 := time.Now()
-			fmt.Println("tempFile := utils.MD5(c.Request.Host + c.Request.URL.Path):",tempFile + qName)
-			filedata,type_ := utils.GETForward("http://" + value[c.Request.Host] + c.Request.URL.Path)
-			err := utils.WriteToFile("./temp/" + tempFile + qName,filedata)
+			fmt.Println("tempFile := utils.MD5(c.Request.Host + c.Request.URL.Path):", tempFile+qName)
+			filedata, type_ := utils.GETForward("http://" + value[c.Request.Host] + c.Request.URL.Path)
+			err := utils.WriteToFile("./temp/"+tempFile+qName, filedata)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println("请求页面花费时长：",c.Request.URL.Path,time.Now().Sub(tm1).Seconds())
-			fmt.Println("Content-Type",type_)
+			fmt.Println("请求页面花费时长：", c.Request.URL.Path, time.Now().Sub(tm1).Seconds())
+			fmt.Println("Content-Type", type_)
 
-			c.Writer.Header().Set("Content-Type",type_)
+			c.Writer.Header().Set("Content-Type", type_)
 			{
 				ctypes, haveType := c.Writer.Header()["Content-Type"]
-				fmt.Println("ctypes:",ctypes,"haveType:",haveType)
+				fmt.Println("ctypes:", ctypes, "haveType:", haveType)
 			}
 			c.File("./temp/" + tempFile + qName)
 
 			{
 				ctypes, haveType := c.Writer.Header()["Content-Type"]
-				fmt.Println("ctypes:",ctypes,"haveType:",haveType)
+				fmt.Println("ctypes:", ctypes, "haveType:", haveType)
 			}
 			return
 		}
 
-
-
 		//fmt.Println("fsList[c.Request.Host].path + array[len(array) - 1]:",fsList[c.Request.Host].path + "/" + array[len(array) - 1])
 		//c.File(fsList[c.Request.Host].path + "/" + array[len(array) - 1])
 		//return
-		fmt.Println(fsList[c.Request.Host].path ,"c.Request.URL.Path:",c.Request.URL.Path)
+		fmt.Println(fsList[c.Request.Host].path, "c.Request.URL.Path:", c.Request.URL.Path)
 		nolisting := fsList[c.Request.Host].nolisting
 		fileServer := fsList[c.Request.Host].fileServer
 		fileServerAdmin := fsList[c.Request.Host].fileServerAdmin
 		//fs := fsList[c.Request.Host].fs
-
 
 		if nolisting {
 			c.Writer.WriteHeader(404)
@@ -335,8 +325,7 @@ func (s *XServer) createStaticHandler(relativePath string,config []map[string]in
 	}
 }
 
-func (s *XServer) createLogFileStaticHandler(relativePath string,config []map[string]interface{}) gin.HandlerFunc {
-
+func (s *XServer) createLogFileStaticHandler(relativePath string, config []map[string]interface{}) gin.HandlerFunc {
 
 	var fsList map[string]*fileSyatem = make(map[string]*fileSyatem)
 

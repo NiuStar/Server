@@ -1,31 +1,30 @@
 package server
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/NiuStar/log"
+	"github.com/NiuStar/utils"
+	"github.com/NiuStar/xsql"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/net/websocket"
-	"net/http"
+	"io/ioutil"
+	xlog "log"
 	"net"
-	"time"
+	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
-	"nqc.cn/log"
-	"nqc.cn/utils"
-	"nqc.cn/xsql"
-	"crypto/tls"
-	xlog "log"
-	"io/ioutil"
 	"path/filepath"
+	"syscall"
+	"time"
 
-	"runtime"
 	"github.com/DeanThompson/ginpprof"
-	"nqc.cn/ftpserver"
-	xgin "nqc.cn/server/gin"
-
+	"github.com/NiuStar/ftpserver"
+	xgin "github.com/NiuStar/server/gin"
+	"runtime"
 )
 
 type XServer struct {
@@ -48,7 +47,6 @@ type XServer struct {
 	postRoutes   map[string]xgin.HandlerFunc
 	socketRoutes map[string]websocket.Handler
 	config       map[string]interface{}
-
 
 	w *xgin.WebSocketServices
 	//s.HandfuncWebSocket("/ws",websocket.Handler(echoHandler))
@@ -86,7 +84,7 @@ func (s *XServer) readConfig() {
 	if config1["ftp"] != nil {
 		s.config["ftp"] = config1["ftp"].(map[string]interface{})
 	}
-*/
+	*/
 	ChangeTitle(config1["fileName"].(string))
 
 	//s.config["mp4"] = config1["mp4"]
@@ -108,20 +106,20 @@ func Default() *XServer {
 	//return ser
 }
 
-func (s *XServer)Config()  map[string]interface{} {
+func (s *XServer) Config() map[string]interface{} {
 	return s.config
 }
 
 func (s *XServer) GET(key string, call xgin.HandlerFunc) {
 
-	s.w.AddGETService(key,call)
+	s.w.AddGETService(key, call)
 	s.getRoutes[key] = call
 
 }
 func (s *XServer) POST(key string, call xgin.HandlerFunc) {
 
 	fmt.Println("POST方法")
-	s.w.AddPOSTService(key,call)
+	s.w.AddPOSTService(key, call)
 	s.postRoutes[key] = call
 
 }
@@ -135,7 +133,6 @@ func (s *XServer) AllMethod(call gin.HandlerFunc) {
 func (s *XServer) HandfuncWebSocket(key string, call websocket.Handler) {
 	s.socketRoutes[key] = call
 }
-
 
 func (s *XServer) InitOldSql() *sql.DB {
 	j2 := s.config["sql"].(map[string]interface{})
@@ -172,14 +169,13 @@ func (s *XServer) DownloadFileDelegate(call func(string, string, string, string)
 	s.downloadHandler = call
 }
 
-
 func (this *XServer) RunServer() {
 
 	if this.config["log_days"] != nil {
 		log.SetSaveDays(int(this.config["log_days"].(float64)))
 	}
 	//log.SetSaveDays(int(this.config["log_days"].(float64)))
-	
+
 	go timer(this)
 
 	if this.config["ftp"] != nil {
@@ -211,7 +207,7 @@ func (this *XServer) RunServer() {
 			"title": "Main website",
 		})
 	})
-	this.HandfuncWebSocket("/ws",websocket.Handler(this.w.EchoHandler))
+	this.HandfuncWebSocket("/ws", websocket.Handler(this.w.EchoHandler))
 	for key, value := range this.socketRoutes {
 		s := new(websocket.Server)
 		s.Handler = value
@@ -221,7 +217,7 @@ func (this *XServer) RunServer() {
 	}
 
 	for key, value := range this.getRoutes {
-		this.server.GET(key,CreateGinConetxt(value))
+		this.server.GET(key, CreateGinConetxt(value))
 	}
 	for key, value := range this.postRoutes {
 
@@ -231,9 +227,8 @@ func (this *XServer) RunServer() {
 	fmt.Println(1)
 	this.server.GET("RemoteBuild", this.remoteBuild)
 
-	
 	ginpprof.Wrapper(this.server)
-	
+
 	fmt.Println(2)
 	if this.config["tls"].(bool) {
 		j2 := this.config["tlsCert"].(map[string]interface{})
@@ -244,7 +239,7 @@ func (this *XServer) RunServer() {
 }
 
 func CreateGinConetxt(value xgin.HandlerFunc) gin.HandlerFunc {
-	return func(c *gin.Context){
+	return func(c *gin.Context) {
 		xc := xgin.NewContext(c)
 		value(xc)
 	}
@@ -280,16 +275,15 @@ func NewServer(addr string, readTimeout, writeTimeout time.Duration) *XServer {
 	}
 }
 
-
 func (this *XServer) ListenAndServer() error {
 	return this.Server()
 }
 
 func (this *XServer) ListenAndServerTLS(certFile, keyFile string) error {
 
-	fmt.Println("tls port =",this.address)
+	fmt.Println("tls port =", this.address)
 	config := &tls.Config{}
-	srv,_ := this.server.GetTLSConfig(this.address)
+	srv, _ := this.server.GetTLSConfig(this.address)
 	if srv.TLSConfig != nil {
 		*config = *srv.TLSConfig
 	}
@@ -305,7 +299,7 @@ func (this *XServer) ListenAndServerTLS(certFile, keyFile string) error {
 		return err
 	}
 
-	ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
+	ln, err := this.server.GetTCPListener(this.isGraceful, this.address)
 	//ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
 	if err != nil {
 		panic(err)
@@ -314,13 +308,13 @@ func (this *XServer) ListenAndServerTLS(certFile, keyFile string) error {
 	//l := tls.NewListener(ln, config)
 
 	this.listener = newListener(ln.(*net.TCPListener))
-	return this.ServerTLS(srv,tls.NewListener(this.listener,config))
+	return this.ServerTLS(srv, tls.NewListener(this.listener, config))
 }
 
 func (this *XServer) Server() error {
 
-	xlog.Println(fmt.Sprintf("(this *Server) Serve() with pid %d.  " + this.address, os.Getpid()))
-	ln, err := this.server.GetTCPListener(this.isGraceful,this.address)
+	xlog.Println(fmt.Sprintf("(this *Server) Serve() with pid %d.  "+this.address, os.Getpid()))
+	ln, err := this.server.GetTCPListener(this.isGraceful, this.address)
 	if err != nil {
 		xlog.Println(fmt.Sprintf("1a56 with pid %d.", os.Getpid()))
 		fmt.Println("1a56")
@@ -334,7 +328,7 @@ func (this *XServer) Server() error {
 	fmt.Println("123456")
 	// 处理HTTP请求
 	xlog.Println(fmt.Sprintf("123456 with pid %d.", os.Getpid()))
-	this.server.Run(this.listener,this.address)
+	this.server.Run(this.listener, this.address)
 
 	// 跳出Serve处理代表 listener 已经close，等待所有已有的连接处理结束
 	this.logf("waiting for connection close...")
@@ -344,7 +338,7 @@ func (this *XServer) Server() error {
 	return err
 }
 
-func (this *XServer) ServerTLS(srv http.Server,ln net.Listener) error {
+func (this *XServer) ServerTLS(srv http.Server, ln net.Listener) error {
 
 	xlog.Println(fmt.Sprintf("(this *Server) Serve() with pid %d.", os.Getpid()))
 
@@ -354,7 +348,7 @@ func (this *XServer) ServerTLS(srv http.Server,ln net.Listener) error {
 	fmt.Println("123456")
 	// 处理HTTP请求
 	xlog.Println(fmt.Sprintf("123456 with pid %d.", os.Getpid()))
-	this.server.RunTLS(srv,ln)
+	this.server.RunTLS(srv, ln)
 
 	// 跳出Serve处理代表 listener 已经close，等待所有已有的连接处理结束
 	this.logf("waiting for connection close...")
@@ -363,7 +357,6 @@ func (this *XServer) ServerTLS(srv http.Server,ln net.Listener) error {
 
 	return nil
 }
-
 
 func (this *XServer) handleSignals() {
 	var sig os.Signal
@@ -378,34 +371,34 @@ func (this *XServer) handleSignals() {
 	pid := os.Getpid()
 	for {
 		sig = <-this.signalChan
-/*
-		switch sig {
+		/*
+			switch sig {
 
-		case syscall.SIGTERM:
+			case syscall.SIGTERM:
 
-			this.logf("pid %d received SIGTERM.", pid)
-			this.logf("graceful shutting down http server...")
+				this.logf("pid %d received SIGTERM.", pid)
+				this.logf("graceful shutting down http server...")
 
-			// 关闭老进程的连接
-			this.listener.(*Listener).Close()
-			this.logf("listener of pid %d closed.", pid)
+				// 关闭老进程的连接
+				this.listener.(*Listener).Close()
+				this.logf("listener of pid %d closed.", pid)
 
-		case syscall.SIGINT:
-			//this.StartServer()
+			case syscall.SIGINT:
+				//this.StartServer()
 
-		default:
+			default:
 
-		}*/
+			}*/
 
-		fmt.Println("程序被外界关闭，信号量为：",sig)
+		fmt.Println("程序被外界关闭，信号量为：", sig)
 
 		break
 	}
 	os.Exit(0)
-	fmt.Println("pid:",pid)
+	fmt.Println("pid:", pid)
 }
 
-func (this *XServer)StartServer() {
+func (this *XServer) StartServer() {
 	pid := os.Getpid()
 	fmt.Println("syscall.SIGHUP:")
 	this.logf("pid %d received SIGUSR2.", pid)
@@ -428,7 +421,7 @@ func (this *XServer) startNewProcess() error {
 	if err != nil {
 		return fmt.Errorf("failed to get socket file descriptor: %v", err)
 	}*/
-	listenerFd,_ := this.listener.(*Listener).GetFd()
+	listenerFd, _ := this.listener.(*Listener).GetFd()
 
 	path := os.Args[0]
 
@@ -449,17 +442,16 @@ func (this *XServer) startNewProcess() error {
 	} else {
 		execSpec = &syscall.ProcAttr{
 			Env:   environList,
-			Files: []uintptr{os.Stdin.Fd(), os.Stdout.Fd(), os.Stderr.Fd(),listenerFd},
+			Files: []uintptr{os.Stdin.Fd(), os.Stdout.Fd(), os.Stderr.Fd(), listenerFd},
 		}
 	}
 
-	fork,_, err := syscall.StartProcess(path, os.Args, execSpec)
+	fork, _, err := syscall.StartProcess(path, os.Args, execSpec)
 	//fork, err := syscall.ForkExec(path, os.Args, execSpec)
 	if err != nil {
 		panic(err)
 		return fmt.Errorf("failed to forkexec: %v", err)
 	}
-
 
 	this.logf("start new process success, pid %d.", fork)
 
@@ -488,6 +480,7 @@ func getNowFiles(this *XServer, dirPth string) []interface{} {
 	//fmt.Println("getNowFiles end")
 	return nowFile
 }
+
 /*
 func getNowFiles(path string) []interface{} {
 
@@ -531,8 +524,8 @@ func GetFullPath(path string) string {
 }
 
 func (this *XServer) restart() {
-	fmt.Println("restart ",os.Getpid())
-	p , err := os.FindProcess(os.Getpid())
+	fmt.Println("restart ", os.Getpid())
+	p, err := os.FindProcess(os.Getpid())
 	if err != nil {
 		panic(err)
 		return
@@ -550,7 +543,7 @@ func (this *XServer) restart() {
 
 	}()
 	//p.Kill()
-	fmt.Println("Signal end ",p.Pid)
+	fmt.Println("Signal end ", p.Pid)
 	/*pstat, err := p.Wait()
 	if err != nil {
 		fmt.Println(err)
@@ -605,9 +598,8 @@ func timer(this *XServer) {
 	//fmt.Println("次数:end ",count)
 }
 
-
-func GetTimeFromList(name string,l []interface{}) int64 {
-	for _,value := range l {
+func GetTimeFromList(name string, l []interface{}) int64 {
+	for _, value := range l {
 		list := value.(map[string]interface{})
 
 		if name == list["name"].(string) {
@@ -619,7 +611,6 @@ func GetTimeFromList(name string,l []interface{}) int64 {
 }
 
 func (this *XServer) logf(format string, args ...interface{}) {
-
 
 	xlog.Printf(format, args...)
 

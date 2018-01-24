@@ -1,19 +1,18 @@
 package gin
 
 import (
-	"nqc.cn/utils"
 	"encoding/json"
+	"github.com/NiuStar/log/fmt"
+	"github.com/NiuStar/utils"
 	"golang.org/x/net/websocket"
-	"nqc.cn/fmt"
 
 	"bytes"
 	"io/ioutil"
 	//"golang.org/x/net/context"
-	"net/http"
 	"github.com/gin-gonic/gin"
+	"net/http"
 	"strings"
 )
-
 
 type H map[string]interface{}
 
@@ -24,7 +23,7 @@ const POSTPARAMS = "PostParams"
 const ContentType = "Content-Type"
 const ApplicationJson = "application/json"
 const ApplicationUrlencoded = "application/x-www-form-urlencoded"
-const STATUS  = "Status"
+const STATUS = "Status"
 const RESULT = "Result"
 const EXT = "Ext"
 const HEART = "heart"
@@ -35,24 +34,21 @@ type WebSocketServices struct {
 	socketService map[string]*Method
 }
 
-
 //10月25日添加短链接转长连接接口
 
 type Context struct {
 	*gin.Context
 	key string
 	tag string
-	ws *websocket.Conn
+	ws  *websocket.Conn
 }
-
 
 type Method struct {
 	mtype uint8 //类型 0 GET 1 POST
-	key string
+	key   string
 	value HandlerFunc
 }
 type HandlerFunc func(*Context)
-
 
 // String writes the given string into the response body.
 func (c *Context) String(code int, format string) {
@@ -60,12 +56,12 @@ func (c *Context) String(code int, format string) {
 	if c.ws == nil {
 		fmt.Println("c.ws == nil")
 		//c.Context.Header()
-		c.Context.String(code,format)
+		c.Context.String(code, format)
 	} else {
 
 		var obj interface{}
 
-		err := json.Unmarshal([]byte(format),&obj)
+		err := json.Unmarshal([]byte(format), &obj)
 
 		var result map[string]interface{} = make(map[string]interface{})
 		result[STATUS] = true
@@ -82,11 +78,11 @@ func (c *Context) String(code int, format string) {
 
 		body, err := json.Marshal(result)
 		if err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 
 		if err := websocket.Message.Send(c.ws, string(body)); err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 	}
 
@@ -109,14 +105,14 @@ func (c *Context) JSON(code int, obj interface{}) {
 
 		body, err := json.Marshal(result)
 		if err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 
 		if err := websocket.Message.Send(c.ws, string(body)); err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 	} else {
-		c.Context.JSON(code,obj)
+		c.Context.JSON(code, obj)
 		//oc := c.gin.Context)
 
 	}
@@ -137,32 +133,31 @@ func (c *Context) JSON2(code int, obj interface{}) {
 
 		body, err := json.Marshal(result)
 		if err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 
-		if err := websocket.Message.Send(c.ws, strings.Replace(string(body),"null","[]",-1)); err != nil {
-			fmt.Println("长连接：" + c.key + c.ws.Request().RemoteAddr,err)
+		if err := websocket.Message.Send(c.ws, strings.Replace(string(body), "null", "[]", -1)); err != nil {
+			fmt.Println("长连接："+c.key+c.ws.Request().RemoteAddr, err)
 		}
 	} else {
-		c.Context.JSON2(code,obj)
+		c.Context.JSON2(code, obj)
 		//oc := c.gin.Context)
 
 	}
 }
 
-
 func InitSocketService() *WebSocketServices {
 
-	w := &WebSocketServices{socketService:make(map[string]*Method)}
+	w := &WebSocketServices{socketService: make(map[string]*Method)}
 
 	return w
 }
 
-func newContext(c *gin.Context,key string,ws *websocket.Conn) *Context {
+func newContext(c *gin.Context, key string, ws *websocket.Conn) *Context {
 	return &Context{
 		Context: c,
-		key :key,
-		ws:ws,
+		key:     key,
+		ws:      ws,
 		//waitGroup:   &sync.WaitGroup{},
 	}
 }
@@ -170,13 +165,13 @@ func newContext(c *gin.Context,key string,ws *websocket.Conn) *Context {
 func NewContext(c *gin.Context) *Context {
 	return &Context{
 		Context: c,
-		key :"",
-		ws:nil,
+		key:     "",
+		ws:      nil,
 		//waitGroup:   &sync.WaitGroup{},
 	}
 }
 
-func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
+func (w *WebSocketServices) EchoHandler(ws *websocket.Conn) {
 
 	defer fmt.Over()
 	for {
@@ -189,16 +184,15 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 			return
 		}
 
-		fmt.Println("reply:",reply)
-
+		fmt.Println("reply:", reply)
 
 		var result map[string]interface{} = make(map[string]interface{})
 
 		var order map[string]interface{} = make(map[string]interface{})
 
-		err = json.Unmarshal([]byte(reply),&order)
+		err = json.Unmarshal([]byte(reply), &order)
 
-		fmt.Println("ORDER:",ORDER,order)
+		fmt.Println("ORDER:", ORDER, order)
 
 		if err != nil {
 			result[STATUS] = false
@@ -206,13 +200,13 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 			result[EXT] = err.Error()
 		} else {
 
-			for key,value := range order {
+			for key, value := range order {
 				order[strings.TrimSpace(key)] = value
 			}
 
 			if order[ORDER] != nil {
 				key := order[ORDER].(string)
-				fmt.Println("key:",key)
+				fmt.Println("key:", key)
 				if key == HEART {
 					result[STATUS] = true
 					result[ORDER] = "heart"
@@ -225,17 +219,13 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 
 					oc := &gin.Context{}
 
-
-
 					if w.socketService[key].mtype == 1 && order[POSTPARAMS] != nil {
 
 						bf := bytes.NewBuffer([]byte(order[POSTPARAMS].(string)))
 						body := ioutil.NopCloser(bf)
 						//body := ioutil.NopCloser(strings.NewReader(req1.PostForm.Encode())) //把form数据编下码
 
-
-
-						request, _ := http.NewRequest("POST", "http://127.0.0.1/" + key + "?" + order[GETPARAMS].(string), body)
+						request, _ := http.NewRequest("POST", "http://127.0.0.1/"+key+"?"+order[GETPARAMS].(string), body)
 
 						if order["Content-Type"] != nil {
 							request.Header.Add(ContentType, order[ContentType].(string))
@@ -243,14 +233,12 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 							request.Header.Add(ContentType, ApplicationUrlencoded)
 						}
 
-						fmt.Println("params:",order[POSTPARAMS].(string))
+						fmt.Println("params:", order[POSTPARAMS].(string))
 
 						oc.Request = request
 
-
 					} else if w.socketService[key].mtype == 0 && order[GETPARAMS] != nil {
-						request, _ := http.NewRequest("GET", "http://127.0.0.1/" + key + "?" + order[GETPARAMS].(string), nil)
-
+						request, _ := http.NewRequest("GET", "http://127.0.0.1/"+key+"?"+order[GETPARAMS].(string), nil)
 
 						oc.Request = request
 					} else {
@@ -260,9 +248,7 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 					//var c interface{}
 					//oc := &gin.Context{Request:ws.Request()}
 
-
-
-					c := newContext(oc,key,ws)
+					c := newContext(oc, key, ws)
 
 					if order[TAG] != nil {
 						c.tag = order[TAG].(string)
@@ -273,7 +259,7 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 					//c := &Context{Context:oc,key:key,ws:ws}
 					//c := Context{Context:oc}
 					fmt.Println("调用相关方法")
-					fmt.Println("c.Context:",c.Context)
+					fmt.Println("c.Context:", c.Context)
 
 					w.socketService[key].value(c)
 					fmt.Println("调用相关方法结束")
@@ -292,7 +278,7 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 		result[TAG] = order[TAG]
 		body, err := json.Marshal(result)
 		if err != nil {
-			fmt.Println("长连接：" + ws.Request().RemoteAddr,err)
+			fmt.Println("长连接："+ws.Request().RemoteAddr, err)
 		}
 
 		if err := websocket.Message.Send(ws, string(body)); err != nil {
@@ -302,35 +288,33 @@ func (w *WebSocketServices)EchoHandler(ws *websocket.Conn) {
 	}
 }
 
-func (w *WebSocketServices)AddGETService(key string,call HandlerFunc) {
-
+func (w *WebSocketServices) AddGETService(key string, call HandlerFunc) {
 
 	fmt.Println("go in AddService ")
 	var k string = key
 	if len(key) > 1 {
 		if key[0] == '/' {
-			k = utils.Substr(key,1,len(key))
+			k = utils.Substr(key, 1, len(key))
 		}
 	}
 
-	fmt.Println("AddService : ",k,call)
+	fmt.Println("AddService : ", k, call)
 
-	m := &Method{mtype:0,key:key,value:call}
+	m := &Method{mtype: 0, key: key, value: call}
 	w.socketService[k] = m
 }
 
-func (w *WebSocketServices)AddPOSTService(key string,call HandlerFunc) {
-
+func (w *WebSocketServices) AddPOSTService(key string, call HandlerFunc) {
 
 	fmt.Println("go in AddService ")
 	var k string = key
 	if len(key) > 1 {
 		if key[0] == '/' {
-			k = utils.Substr(key,1,len(key))
+			k = utils.Substr(key, 1, len(key))
 		}
 	}
 
-	fmt.Println("AddService : ",k,call)
-	m := &Method{mtype:1,key:key,value:call}
+	fmt.Println("AddService : ", k, call)
+	m := &Method{mtype: 1, key: key, value: call}
 	w.socketService[k] = m
 }

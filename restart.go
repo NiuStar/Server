@@ -36,7 +36,6 @@ func (this *XServer) ConnectToProcess() {
 		fmt.Println("ws is nil")
 	}
 
-
 	//path, _ := filepath.Abs(filePath)
 
 	//fmt.Println("filePath:",filePath," fileName:",fileName)

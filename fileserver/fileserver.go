@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -21,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"net/http"
 )
 
 // A Dir implements http.FileSystem using the native file system restricted to a
@@ -49,7 +49,6 @@ func (d Dir) Open(name string) (File, error) {
 	}
 	return f, nil
 }
-
 
 // A File is returned by a http.FileSystem's Open method and can be
 // served by the FileServer implementation.
@@ -144,7 +143,9 @@ func ServeContent(w http.ResponseWriter, req *http.Request, name string, modtime
 // included in the sizeFunc reply so it's not sent over HTTP to end
 // users.
 var errSeeker = errors.New("seeker can't seek")
+
 const sniffLen = 512
+
 // if name is empty, filename is unknown. (used for mime type, before sniffing)
 // if modtime.IsZero(), modtime is unknown.
 // content must be seeked to the beginning of the file.

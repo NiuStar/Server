@@ -1,15 +1,15 @@
 package server
 
 import (
+	"github.com/NiuStar/log/fmt"
+	"github.com/NiuStar/utils"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"nqc.cn/fmt"
-	"nqc.cn/utils"
 )
 
-func (this *XServer)StartListenHandler() {
+func (this *XServer) StartListenHandler() {
 	var sig os.Signal
 
 	signal.Notify(
@@ -38,43 +38,41 @@ func (this *XServer)StartListenHandler() {
 	for {
 		sig = <-this.signalChan
 
-
 		switch sig {
 
 		case syscall.SIGHUP:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGHUP")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGHUP")
 		case syscall.SIGINT:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGINT")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGINT")
 		case syscall.SIGQUIT:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGQUIT")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGQUIT")
 		case syscall.SIGILL:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGILL")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGILL")
 		case syscall.SIGTRAP:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGTRAP")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGTRAP")
 		case syscall.SIGABRT:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGABRT")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGABRT")
 
 		case syscall.SIGBUS:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGBUS")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGBUS")
 
 		case syscall.SIGFPE:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGFPE")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGFPE")
 		case syscall.SIGKILL:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGKILL")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGKILL")
 
 		case syscall.SIGSEGV:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGSEGV")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGSEGV")
 		case syscall.SIGPIPE:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGPIPE")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGPIPE")
 
 		case syscall.SIGALRM:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGALRM")
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGALRM")
 		case syscall.SIGTERM:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  syscall.SIGTERM")
-
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  syscall.SIGTERM")
 
 		default:
-			fmt.Println(utils.FormatTimeAll(time.Now().Unix())," pid= ",pid,"  ",sig)
+			fmt.Println(utils.FormatTimeAll(time.Now().Unix()), " pid= ", pid, "  ", sig)
 
 		}
 	}

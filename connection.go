@@ -1,8 +1,8 @@
 package server
 
 import (
-	"net"
 	"fmt"
+	"net"
 )
 
 type Connection struct {

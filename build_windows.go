@@ -3,7 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"github.com/gin-gonic/gin"
+	"github.com/NiuStar/server/gin"
 	"io"
 	"net/http"
 	"os/exec"
