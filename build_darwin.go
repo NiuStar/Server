@@ -11,6 +11,18 @@ import (
 	//"os"
 )
 
+func Build(path ,exeName string) string {
+
+	ok, stderr := execCommand( path,"go", "build" )
+	if ok && len(stderr) > 0 {
+
+		fmt.Println("stderr:",stderr)
+		return stderr
+	}
+	fmt.Println("state:", ok, " len: ", len(stderr))
+	return ""
+}
+
 func (s *XServer) remoteBuild(c *gin.Context) {
 	name := c.Query("name")
 
@@ -59,9 +71,10 @@ func (s *XServer) remoteBuild(c *gin.Context) {
 	}
 }
 
-func execCommand(commandName string, params ...string) (bool, string) {
+func execCommand(dir string,commandName string, params ...string) (bool, string) {
 	cmd := exec.Command(commandName, params...)
 
+	cmd.Dir = dir
 	//显示运行的命令
 	fmt.Println(cmd.Args)
 
@@ -71,13 +84,18 @@ func execCommand(commandName string, params ...string) (bool, string) {
 		fmt.Println("err: ",err)
 		return false,err.Error()
 	}*/
+
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		fmt.Println("err2", err)
+		fmt.Println("cmd.StdoutPipe : ", err)
 		return false, err.Error()
 	}
 
-	cmd.Start()
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println("cmd.Start() err: ", err)
+		return false, err.Error()
+	}
 	//fmt.Println("stdout:",getOutput(stdout))
 	//fmt.Println("stderr:",getOutput(stderr))
 	//go io.Copy(os.Stdout, stdout)
@@ -95,7 +113,7 @@ func getOutput(out io.ReadCloser) string {
 		line, ok, err2 := reader.ReadLine()
 		fmt.Println("OK:", ok)
 		if err2 != nil || io.EOF == err2 {
-			fmt.Println("err2:", err2)
+			fmt.Println("reader.ReadLine:", err2)
 			break
 		}
 		result += string(line) + "\r\n"

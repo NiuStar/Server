@@ -134,40 +134,74 @@ func (s *XServer) HandfuncWebSocket(key string, call websocket.Handler) {
 	s.socketRoutes[key] = call
 }
 
+
 func (s *XServer) InitOldSql() *sql.DB {
-	j2 := s.config["sql"].(map[string]interface{})
-	// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
-	s.db, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8mb4")
-	s.db.SetMaxOpenConns(2000)
-	s.db.SetMaxIdleConns(1000)
-	s.db.Ping()
-	return s.db
+
+	if s.config["sql"] != nil {
+		j2 := s.config["sql"].(map[string]interface{})
+		// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
+		s.db, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8mb4")
+		s.db.SetMaxOpenConns(2000)
+		s.db.SetMaxIdleConns(1000)
+		s.db.Ping()
+		return s.db
+	} else {
+		return nil
+	}
+
 }
 
 func (s *XServer) InitOldSql2() *sql.DB {
-	j2 := s.config["sql2"].(map[string]interface{})
-	// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
-	s.db2, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8mb4")
-	s.db2.SetMaxOpenConns(2000)
-	s.db2.SetMaxIdleConns(1000)
-	s.db2.Ping()
-	return s.db2
+
+	if s.config["sql2"] != nil {
+		j2 := s.config["sql2"].(map[string]interface{})
+		// db, _ = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/suitang?charset=utf8")
+		s.db2, _ = sql.Open("mysql", j2["name"].(string)+":"+j2["password"].(string)+"@tcp("+j2["ip"].(string)+":"+j2["port"].(string)+")/"+j2["table"].(string)+"?charset=utf8mb4")
+		s.db2.SetMaxOpenConns(2000)
+		s.db2.SetMaxIdleConns(1000)
+		s.db2.Ping()
+		return s.db2
+	} else {
+		return nil
+	}
+
 }
 
 func (s *XServer) InitXSql() *xsql.XSql {
-	j2 := s.config["sql"].(map[string]interface{})
-	s.xs = xsql.InitSql(j2["name"].(string), j2["password"].(string), j2["ip"].(string), j2["port"].(string), j2["table"].(string))
-	return s.xs
+
+	if s.config["sql"] != nil {
+		j2 := s.config["sql"].(map[string]interface{})
+		s.xs = xsql.InitSql(j2["name"].(string), j2["password"].(string), j2["ip"].(string), j2["port"].(string), j2["table"].(string))
+		return s.xs
+	} else {
+		return nil
+	}
+
 }
 func (s *XServer) InitXSql3() *xsql.XSql {
-	j2 := s.config["sql3"].(map[string]interface{})
-	s.xs = xsql.InitSql(j2["name"].(string), j2["password"].(string), j2["ip"].(string), j2["port"].(string), j2["table"].(string))
-	return s.xs
+
+	if s.config["sql3"] != nil {
+		j2 := s.config["sql3"].(map[string]interface{})
+		s.xs = xsql.InitSql(j2["name"].(string), j2["password"].(string), j2["ip"].(string), j2["port"].(string), j2["table"].(string))
+		return s.xs
+	} else {
+		return nil
+	}
+
 }
 
 func (s *XServer) DownloadFileDelegate(call func(string, string, string, string)) {
 	s.downloadHandler = call
 }
+
+
+func (s *XServer)fileHandler(c *gin.Context) {
+
+	fmt.Println("c.Request.URL.Path:",c.Request.URL.Path)
+	c.File("." + c.Request.URL.Path)
+	//c.Request.URL.Path
+}
+
 
 func (this *XServer) RunServer() {
 
@@ -227,6 +261,9 @@ func (this *XServer) RunServer() {
 	fmt.Println(1)
 	this.server.GET("RemoteBuild", this.remoteBuild)
 
+	if !this.HadAllowAllMethod {
+		this.AllMethod(this.fileHandler)
+	}
 	ginpprof.Wrapper(this.server)
 
 	fmt.Println(2)

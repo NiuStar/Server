@@ -11,6 +11,17 @@ import (
 	//"os"
 )
 
+func Build(path ,exeName string) string {
+
+	ok, stderr := execCommand("cmd.exe", "/c", "go", "build", "-o", exeName, path)
+	if ok && len(stderr) > 0 {
+
+		return stderr
+	}
+	fmt.Println("state:", ok, " len: ", len(stderr))
+	return ""
+}
+
 func (s *XServer) remoteBuild(c *gin.Context) {
 	name := c.Query("name")
 
@@ -62,6 +73,7 @@ func (s *XServer) remoteBuild(c *gin.Context) {
 func execCommand(commandName string, params ...string) (bool, string) {
 	cmd := exec.Command(commandName, params...)
 
+	
 	//显示运行的命令
 	fmt.Println(cmd.Args)
 
